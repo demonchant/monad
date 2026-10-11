@@ -122,60 +122,36 @@ function safeAddress(value: unknown, label: string): Address {
 }
 
 export async function fetchMarkets(signal?: AbortSignal, onProgress?: (scanned: number, found: number) => void): Promise<Market[]> {
-  // The filtered endpoint only discovers pairs from a supplied token list. The
-  // markets endpoint is Kuru's paginated directory and includes every listed pair.
-  const pageSize = 5_000
-  const maxPages = 100
+  // Use the same current market-search endpoint as Kuru's frontend. The v1
+  // markets history endpoint also contains obsolete and unsupported records.
+  const response = await fetch(`${KURU_API}/api/v2/markets/search?limit=100&q=`, { signal })
+  if (!response.ok) throw new Error(`Kuru market search returned HTTP ${response.status}.`)
+  const body: unknown = await response.json()
+  const root = body && typeof body === 'object' ? (body as { data?: unknown }).data : undefined
+  const rows = root && typeof root === 'object' && Array.isArray((root as { data?: unknown }).data) ? (root as { data: RawMarket[] }).data : null
+  if (!rows || (body as { success?: unknown }).success !== true) throw new Error('Kuru market search returned an unexpected response.')
   const byAddress = new Map<string, Market>()
-  let scanned = 0
-  const concurrency = 4
-  for (let firstPage = 0; firstPage < maxPages; firstPage += concurrency) {
-    if (signal?.aborted) throw new DOMException('Market discovery was cancelled.', 'AbortError')
-    const pages = await Promise.all(Array.from({ length: Math.min(concurrency, maxPages - firstPage) }, async (_, index) => {
-      const page = firstPage + index
-      let response: Response | undefined
-      for (let attempt = 0; attempt < 4; attempt += 1) {
-        if (signal?.aborted) throw new DOMException('Market discovery was cancelled.', 'AbortError')
-        try {
-          response = await fetch(`${KURU_API}/api/v1/markets?limit=${pageSize}&offset=${page * pageSize}`, { signal })
-          if (response.ok || (response.status < 500 && response.status !== 429)) break
-        } catch (error) {
-          if (signal?.aborted || attempt === 3) throw error
-        }
-        if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 400 * 2 ** attempt))
-      }
-      if (!response?.ok) throw new Error(`Kuru market directory returned HTTP ${response?.status ?? 'no response'} at offset ${page * pageSize}.`)
-      const body: unknown = await response.json()
-      const root = body && typeof body === 'object' ? (body as { data?: unknown }).data : undefined
-      const rows = Array.isArray(root) ? root : root && typeof root === 'object' && Array.isArray((root as { data?: unknown }).data) ? (root as { data: RawMarket[] }).data : null
-      if (!rows) throw new Error('Kuru market directory returned an unexpected response.')
-      return { page, rows: rows as RawMarket[] }
-    }))
-    for (const { rows } of pages) {
-      for (const row of rows) {
-        try {
-          if (!row.market) continue
-          const base = row.basetoken
-          const quote = row.quotetoken
-          const baseAddress = safeAddress(base?.address || row.baseasset || row.baseassetaddress, 'base token')
-          const quoteAddress = safeAddress(quote?.address || row.quoteasset || row.quoteassetaddress, 'quote token')
-          const address = safeAddress(row.market, 'market')
-          const baseSymbol = base?.ticker || base?.symbol || (baseAddress === ZERO_ADDRESS ? 'MON' : 'TOKEN')
-          const quoteSymbol = quote?.ticker || quote?.symbol || 'TOKEN'
-          const baseDecimals = Number(base?.decimal ?? base?.decimals ?? (baseAddress === ZERO_ADDRESS ? 18 : NaN))
-          const quoteDecimals = Number(quote?.decimal ?? quote?.decimals ?? NaN)
-          if (!Number.isInteger(baseDecimals) || !Number.isInteger(quoteDecimals) || baseDecimals < 0 || quoteDecimals < 0 || baseDecimals > 36 || quoteDecimals > 36) continue
-          if (!byAddress.has(address.toLowerCase())) byAddress.set(address.toLowerCase(), { address, baseAddress, quoteAddress, baseSymbol, quoteSymbol,
-            baseName: base?.name || baseSymbol, quoteName: quote?.name || quoteSymbol, baseDecimals, quoteDecimals,
-            lastPrice: row.lastPrice == null ? null : String(row.lastPrice), volume24h: row.volume24h == null ? null : String(row.volume24h) })
-        } catch { /* Ignore malformed indexer rows; market contracts are validated on-chain when selected. */ }
-      }
-      scanned += rows.length
-      onProgress?.(scanned, byAddress.size)
-    }
-    if (pages.some(({ rows }) => rows.length < pageSize)) return [...byAddress.values()]
+  for (const row of rows) {
+    try {
+      if (!row.market) continue
+      const base = row.basetoken
+      const quote = row.quotetoken
+      const baseAddress = safeAddress(base?.address || row.baseasset || row.baseassetaddress, 'base token')
+      const quoteAddress = safeAddress(quote?.address || row.quoteasset || row.quoteassetaddress, 'quote token')
+      const address = safeAddress(row.market, 'market')
+      const baseSymbol = base?.ticker || base?.symbol || (baseAddress === ZERO_ADDRESS ? 'MON' : 'TOKEN')
+      const quoteSymbol = quote?.ticker || quote?.symbol || 'TOKEN'
+      const baseDecimals = Number(base?.decimal ?? base?.decimals ?? (baseAddress === ZERO_ADDRESS ? 18 : NaN))
+      const quoteDecimals = Number(quote?.decimal ?? quote?.decimals ?? NaN)
+      if (!Number.isInteger(baseDecimals) || !Number.isInteger(quoteDecimals) || baseDecimals < 0 || quoteDecimals < 0 || baseDecimals > 36 || quoteDecimals > 36) continue
+      if (!byAddress.has(address.toLowerCase())) byAddress.set(address.toLowerCase(), { address, baseAddress, quoteAddress, baseSymbol, quoteSymbol,
+        baseName: base?.name || baseSymbol, quoteName: quote?.name || quoteSymbol, baseDecimals, quoteDecimals,
+        lastPrice: row.lastPrice == null ? null : String(row.lastPrice), volume24h: row.volume24h == null ? null : String(row.volume24h) })
+    } catch { /* Ignore malformed indexer rows; market contracts are validated on-chain when selected. */ }
   }
-  throw new Error('Kuru market directory exceeds the supported scan limit. No partial market list was loaded.')
+  const markets = [...byAddress.values()]
+  onProgress?.(rows.length, markets.length)
+  return markets
 }
 
 export async function fetchBook(market: Address, signal?: AbortSignal): Promise<Book> {

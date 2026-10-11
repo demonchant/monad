@@ -49,6 +49,10 @@ export const erc20Abi = [
 export const marginAbi = [
   { type: 'function', name: 'getBalance', stateMutability: 'view', inputs: [{ name: '_user', type: 'address' }, { name: '_token', type: 'address' }], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'deposit', stateMutability: 'payable', inputs: [{ name: '_user', type: 'address' }, { name: '_token', type: 'address' }, { name: '_amount', type: 'uint256' }], outputs: [] },
+  { type: 'function', name: 'withdraw', stateMutability: 'nonpayable', inputs: [{ name: '_amount', type: 'uint256' }, { name: '_token', type: 'address' }], outputs: [] },
+  { type: 'event', name: 'Withdrawal', anonymous: false, inputs: [
+    { indexed: false, name: 'owner', type: 'address' }, { indexed: false, name: 'token', type: 'address' }, { indexed: false, name: 'amount', type: 'uint256' },
+  ] },
 ] as const
 
 // These entries are copied from Kuru Labs' published OrderBook ABI. Keep the

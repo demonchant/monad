@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
-  ArrowDownLeft, ArrowDownUp, ArrowUpRight, ArrowUpRightFromSquare, CircleAlert, CircleCheck,
+  ArrowDownLeft, ArrowDownUp, ArrowUpRight, ArrowUpRightFromSquare, ArrowUpToLine, CircleAlert, CircleCheck,
   Clock3, ExternalLink, LoaderCircle, LockKeyhole, Menu, Plus, RefreshCw, ShieldCheck, Wallet, X,
   ChevronDown,
 } from 'lucide-react'
@@ -138,6 +138,10 @@ function TradingDesk() {
   const [depositStage, setDepositStage] = useState('')
   const [depositApprovalHash, setDepositApprovalHash] = useState<Hash | null>(null)
   const [depositTxHash, setDepositTxHash] = useState<Hash | null>(null)
+  const [withdrawTarget, setWithdrawTarget] = useState<'base' | 'quote' | null>(null)
+  const [withdrawInput, setWithdrawInput] = useState('')
+  const [withdrawStage, setWithdrawStage] = useState('')
+  const [withdrawTxHash, setWithdrawTxHash] = useState<Hash | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -298,8 +302,9 @@ function TradingDesk() {
   }, [rpcState])
 
   const updateAccount = useCallback((nextAccount: string | null, nextChain?: number | null) => {
+    setDepositTarget(null); setWithdrawTarget(null); setWithdrawInput('')
     if (!nextAccount || !isAddress(nextAccount)) {
-      setAccount(null); setChainId(nextChain ?? null); setWalletClient(null); setBalances(emptyBalances); setBalanceScope(''); setBalanceErrorScope(''); setBalanceState('idle'); setOrders([]); setOrdersState('idle'); setDepositTarget(null); setPendingPlace(null); setPendingCheck('loading'); return
+      setAccount(null); setChainId(nextChain ?? null); setWalletClient(null); setBalances(emptyBalances); setBalanceScope(''); setBalanceErrorScope(''); setBalanceState('idle'); setOrders([]); setOrdersState('idle'); setPendingPlace(null); setPendingCheck('loading'); return
     }
     setAccount(getAddress(nextAccount)); setOrders(loadOrders(getAddress(nextAccount))); setPendingPlace(null); setPendingCheck('loading'); if (nextChain !== undefined) setChainId(nextChain)
     if (window.ethereum) setWalletClient(makeWalletClient(window.ethereum))
@@ -311,7 +316,7 @@ function TradingDesk() {
       const list = Array.isArray(value) ? value : []
       void provider.request({ method: 'eth_chainId' }).then((id) => updateAccount(typeof list[0] === 'string' ? list[0] : null, Number(id))).catch(() => updateAccount(null))
     }
-    const onChain = (value: unknown) => { const id = typeof value === 'string' ? Number(value) : null; setChainId(id); if (id !== MONAD_CHAIN_ID) { setBalances(emptyBalances); setBalanceScope(''); setBalanceErrorScope(''); setBalanceState('idle'); setDepositTarget(null) } }
+    const onChain = (value: unknown) => { const id = typeof value === 'string' ? Number(value) : null; setChainId(id); if (id !== MONAD_CHAIN_ID) { setBalances(emptyBalances); setBalanceScope(''); setBalanceErrorScope(''); setBalanceState('idle'); setDepositTarget(null); setWithdrawTarget(null) } }
     provider.on('accountsChanged', onAccounts); provider.on('chainChanged', onChain)
     return () => { provider.removeListener?.('accountsChanged', onAccounts); provider.removeListener?.('chainChanged', onChain) }
   }, [updateAccount])
@@ -417,7 +422,7 @@ function TradingDesk() {
   }, [account, onMonad, marketAddress, storageReady, rpcState, addOrders, setNotice])
   useEffect(() => { void recoverPending() }, [recoverPending])
 
-  const currentAsset = depositTarget === 'base' ? {
+  const currentAsset = (withdrawTarget ?? depositTarget) === 'base' ? {
     address: marketParams?.baseAddress, symbol: selectedMarket?.baseSymbol ?? 'base token', decimals: marketParams?.baseDecimals, wallet: currentBalances.walletBase, margin: currentBalances.marginBase,
   } : {
     address: marketParams?.quoteAddress, symbol: selectedMarket?.quoteSymbol ?? 'quote token', decimals: marketParams?.quoteDecimals, wallet: currentBalances.walletQuote, margin: currentBalances.marginQuote,
@@ -427,6 +432,8 @@ function TradingDesk() {
 
   const openDeposit = (target: 'base' | 'quote') => { setDepositTarget(target); setDepositInput(''); setDepositStage(''); setDepositApprovalHash(null); setDepositTxHash(null) }
   const closeDeposit = () => { setDepositTarget(null); setDepositStage(''); setDepositApprovalHash(null); setDepositTxHash(null) }
+  const openWithdraw = (target: 'base' | 'quote') => { setWithdrawTarget(target); setWithdrawInput(''); setWithdrawStage(''); setWithdrawTxHash(null) }
+  const closeWithdraw = () => { setWithdrawTarget(null); setWithdrawStage(''); setWithdrawTxHash(null) }
 
   const handleDeposit = async (event: FormEvent) => {
     event.preventDefault()
@@ -473,6 +480,45 @@ function TradingDesk() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Deposit did not complete.'
       setDepositStage(message); setNotice({ kind: 'error', message, hash: depositHash, approvalHash })
+    } finally { setActionBusy('') }
+  }
+
+  const handleWithdrawal = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!account || !walletClient || rpcState !== 'ready' || !marginAddress || !balanceReadReady || !currentAsset.address || currentAsset.decimals === undefined) return
+    let amount: bigint
+    try { amount = parseUnits(withdrawInput, currentAsset.decimals) } catch { setWithdrawStage('Enter a positive amount with no more decimal places than the token supports.'); return }
+    if (amount <= 0n) { setWithdrawStage('Enter an amount greater than zero.'); return }
+    if (currentAsset.margin !== undefined && amount > currentAsset.margin) { setWithdrawStage('The amount exceeds your available Kuru margin balance.'); return }
+    const startingMargin = currentAsset.margin ?? 0n
+    setActionBusy('withdraw'); setWithdrawStage('Review the withdrawal in your wallet…'); setWithdrawTxHash(null)
+    let hash: Hash | undefined
+    try {
+      const { request } = await publicClient.simulateContract({ address: marginAddress, abi: marginAbi, functionName: 'withdraw', args: [amount, currentAsset.address], account })
+      hash = await walletClient.writeContract(request)
+      setWithdrawTxHash(hash)
+      setNotice({ kind: 'info', message: 'Kuru withdrawal submitted. Waiting for receipt and balance read-back.', hash })
+      setWithdrawStage(`Waiting for withdrawal ${hash.slice(0, 10)}…`)
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      if (receipt.status !== 'success') throw new Error('Withdrawal transaction reverted.')
+      const withdrawalLogged = receipt.logs.some((log) => {
+        if (log.address.toLowerCase() !== marginAddress.toLowerCase()) return false
+        try {
+          const event = decodeEventLog({ abi: marginAbi, data: log.data, topics: [...log.topics] as [Hash, ...Hash[]], strict: false })
+          if (event.eventName !== 'Withdrawal') return false
+          const args = event.args as unknown as { owner: Address; token: Address; amount: bigint }
+          return args.owner.toLowerCase() === account.toLowerCase() && args.token.toLowerCase() === currentAsset.address!.toLowerCase() && args.amount === amount
+        } catch { return false }
+      })
+      if (!withdrawalLogged) throw new Error('Withdrawal receipt mined, but Kuru did not emit a matching withdrawal for this wallet and amount.')
+      const updatedMargin = await publicClient.readContract({ address: marginAddress, abi: marginAbi, functionName: 'getBalance', args: [account, currentAsset.address] })
+      if (updatedMargin > startingMargin - amount) throw new Error('Withdrawal receipt mined, but the Kuru margin balance did not decrease by the requested amount on read-back.')
+      setWithdrawTarget(null); setWithdrawInput(''); setWithdrawStage('')
+      setNotice({ kind: 'success', message: `${fmt(startingMargin - updatedMargin, currentAsset.decimals)} ${currentAsset.symbol} withdrawal verified from Kuru margin to your connected wallet.`, hash })
+      await refreshBalances()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Withdrawal did not complete.'
+      setWithdrawStage(message); setNotice({ kind: 'error', message, hash })
     } finally { setActionBusy('') }
   }
 
@@ -711,7 +757,7 @@ function TradingDesk() {
               <div className="balance-row"><span className="asset-name"><i className="asset-mon">{selectedMarket.baseSymbol.slice(0, 1)}</i><strong>{selectedMarket.baseSymbol}</strong></span><span>{fmt(currentBalances.walletBase, marketParams.baseDecimals, 4)}</span><span className="margin-value">{fmt(currentBalances.marginBase, marketParams.baseDecimals, 4)}</span></div>
               <div className="balance-row"><span className="asset-name"><i className="asset-usdc">{selectedMarket.quoteSymbol.slice(0, 1)}</i><strong>{selectedMarket.quoteSymbol}</strong></span><span>{fmt(currentBalances.walletQuote, marketParams.quoteDecimals, 2)}</span><span className="margin-value">{fmt(currentBalances.marginQuote, marketParams.quoteDecimals, 2)}</span></div>
               <div className="gas-balance"><span>Network gas</span><strong>{fmt(currentBalances.native, 18, 5)} MON</strong></div>
-              <div className="balance-actions"><button type="button" className="deposit-button" onClick={() => openDeposit('quote')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready'}><Plus size={15} />Add quote margin</button><button type="button" className="subtle-button" onClick={() => openDeposit('base')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready'}><ArrowDownLeft size={14} />Add base</button></div>
+              <div className="balance-actions"><button type="button" className="deposit-button" onClick={() => openDeposit('quote')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready'}><Plus size={15} />Add quote margin</button><button type="button" className="subtle-button" onClick={() => openDeposit('base')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready'}><ArrowDownLeft size={14} />Add base</button><button type="button" className="subtle-button" onClick={() => openWithdraw('quote')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready' || !currentBalances.marginQuote}><ArrowUpToLine size={14} />Withdraw quote</button><button type="button" className="subtle-button" onClick={() => openWithdraw('base')} disabled={!marginAddress || !balanceReadReady || rpcState !== 'ready' || !currentBalances.marginBase}><ArrowUpToLine size={14} />Withdraw base</button></div>
               <div className="balance-source">{currentBalanceError ? <span className="error-text" title={currentBalanceError}>Read failed · retry</span> : !balanceReadReady ? 'Reading wallet + margin contracts…' : `On-chain read${balanceUpdated ? ` · ${timeAgo(balanceUpdated, clockNow)}` : ''}`}</div>
               {currentBalanceError && <button className="link-retry" type="button" onClick={() => void refreshBalances()}>{currentBalanceError} Retry</button>}
             </> : <div className="balance-empty">{!connected ? <><p>Connect a wallet to read real balances.</p><button type="button" className="connect-inline" onClick={() => void connectWallet()} disabled={walletBusy}>Connect wallet <ArrowUpRight size={14} /></button></> : !onMonad ? <><p>Balances are hidden while the wallet is on the wrong network.</p><button type="button" className="connect-inline" onClick={() => void switchNetwork()}>Switch to Monad <ArrowUpRight size={14} /></button></> : <p>{balanceState === 'loading' ? 'Reading account balances…' : marginAddressError || 'Select a market to load token balances.'}</p>}</div>}
@@ -745,18 +791,19 @@ function TradingDesk() {
 
     {toast && <div className={`toast toast-${toast.kind}`} role={toast.kind === 'error' ? 'alert' : 'status'}>{toast.kind === 'success' ? <CircleCheck size={17} /> : toast.kind === 'error' ? <CircleAlert size={17} /> : <Clock3 size={17} />}<span>{toast.message}{toast.hash && <a href={explorerTx(toast.hash)} target="_blank" rel="noreferrer">View transaction <ExternalLink size={12} /></a>}{toast.approvalHash && <a href={explorerTx(toast.approvalHash)} target="_blank" rel="noreferrer">View approval <ExternalLink size={12} /></a>}</span><button type="button" onClick={() => setToast(null)} aria-label="Dismiss notification"><X size={15} /></button></div>}
 
-    {depositTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionBusy) closeDeposit() }}>
+    {(depositTarget || withdrawTarget) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionBusy) { depositTarget ? closeDeposit() : closeWithdraw() } }}>
       <section className="deposit-modal" role="dialog" aria-modal="true" aria-labelledby="deposit-title">
-        <div className="modal-top"><div><div className="section-kicker">KURU MARGIN</div><h2 id="deposit-title">Add {currentAsset.symbol}</h2></div><button className="icon-button" type="button" onClick={() => { if (!actionBusy) closeDeposit() }} aria-label="Close deposit dialog" disabled={!!actionBusy}><X size={17} /></button></div>
-        <p className="modal-copy">Move tokens from your connected wallet into your own Kuru trading balance. This is a real Monad transaction.</p>
+        <div className="modal-top"><div><div className="section-kicker">KURU MARGIN</div><h2 id="deposit-title">{withdrawTarget ? 'Withdraw' : 'Add'} {currentAsset.symbol}</h2></div><button className="icon-button" type="button" onClick={() => { if (!actionBusy) { withdrawTarget ? closeWithdraw() : closeDeposit() } }} aria-label="Close balance dialog" disabled={!!actionBusy}><X size={17} /></button></div>
+        <p className="modal-copy">{withdrawTarget ? 'Withdraw available margin directly to your connected wallet. Review and sign this Monad transaction in your wallet.' : 'Move tokens from your connected wallet into your own Kuru trading balance. This is a real Monad transaction.'}</p>
         <div className="deposit-balance"><span>Wallet balance</span><strong>{currentAsset.decimals === undefined ? '—' : fmt(currentAsset.wallet, currentAsset.decimals, 5)} {currentAsset.symbol}</strong></div><div className="deposit-balance"><span>Current Kuru margin</span><strong>{currentAsset.decimals === undefined ? '—' : fmt(currentAsset.margin, currentAsset.decimals, 5)} {currentAsset.symbol}</strong></div>
-        <form onSubmit={(event) => void handleDeposit(event)}><label className="input-label" htmlFor="deposit-amount">Deposit amount <span>{currentAsset.decimals ?? '—'} token decimals</span></label>
-          <div className="number-field"><input id="deposit-amount" name="depositAmount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={depositInput} onChange={(event) => setDepositInput(event.target.value)} disabled={!!actionBusy || !balanceReadReady || rpcState !== 'ready'} /><span>{currentAsset.symbol}</span><button type="button" className="text-action" onClick={() => { if (currentAsset.decimals !== undefined) setDepositInput(formatUnits(currentAsset.wallet, currentAsset.decimals)) }} disabled={!balanceReadReady || rpcState !== 'ready'}>MAX</button></div>
-          <div className="deposit-steps"><span className={!actionBusy || approvalStepActive || currentAsset.address === ZERO_ADDRESS ? 'step-current' : 'step-done'}><i>{approvalStepActive || (currentAsset.address === ZERO_ADDRESS && !!actionBusy) ? '1' : '✓'}</i>{currentAsset.address === ZERO_ADDRESS ? 'Deposit MON' : 'Approve exact amount'}</span>{currentAsset.address !== ZERO_ADDRESS && <span className={depositStepActive ? 'step-current' : ''}><i>2</i>Deposit to margin</span>}</div>
-          {depositStage && <div className={/revert|exceed|reject|did not|below/i.test(depositStage) ? 'deposit-stage stage-error' : 'deposit-stage'} role="status">{actionBusy ? <LoaderCircle size={14} className="spin" /> : <CircleAlert size={14} />}{depositStage}</div>}
-          {(depositApprovalHash || depositTxHash) && <div className="deposit-receipts">{depositApprovalHash && <a href={explorerTx(depositApprovalHash)} target="_blank" rel="noreferrer">Approval transaction <ExternalLink size={12} /></a>}{depositTxHash && <a href={explorerTx(depositTxHash)} target="_blank" rel="noreferrer">Deposit transaction <ExternalLink size={12} /></a>}</div>}
-          <button className="submit-order deposit-submit" type="submit" disabled={!!actionBusy || !depositInput || !onMonad || rpcState !== 'ready' || !balanceReadReady || !currentAsset.address || !marginAddress}>{actionBusy === 'deposit' ? <><LoaderCircle size={16} className="spin" />Processing wallet steps…</> : <>Review deposit <ArrowUpRight size={16} /></>}</button>
-        </form><p className="form-disclaimer">If approval is needed, it is for this exact amount. Approval and deposit require separate wallet confirmations. Closing the dialog does not cancel a submitted transaction.</p>
+        <form onSubmit={(event) => void (withdrawTarget ? handleWithdrawal(event) : handleDeposit(event))}><label className="input-label" htmlFor="deposit-amount">{withdrawTarget ? 'Withdrawal amount' : 'Deposit amount'} <span>{currentAsset.decimals ?? '—'} token decimals</span></label>
+          <div className="number-field"><input id="deposit-amount" name="depositAmount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={withdrawTarget ? withdrawInput : depositInput} onChange={(event) => withdrawTarget ? setWithdrawInput(event.target.value) : setDepositInput(event.target.value)} disabled={!!actionBusy || !balanceReadReady || rpcState !== 'ready'} /><span>{currentAsset.symbol}</span><button type="button" className="text-action" onClick={() => { if (currentAsset.decimals !== undefined) withdrawTarget ? setWithdrawInput(formatUnits(currentAsset.margin ?? 0n, currentAsset.decimals)) : setDepositInput(formatUnits(currentAsset.wallet, currentAsset.decimals)) }} disabled={!balanceReadReady || rpcState !== 'ready'}>MAX</button></div>
+          {!withdrawTarget && <div className="deposit-steps"><span className={!actionBusy || approvalStepActive || currentAsset.address === ZERO_ADDRESS ? 'step-current' : 'step-done'}><i>{approvalStepActive || (currentAsset.address === ZERO_ADDRESS && !!actionBusy) ? '1' : '✓'}</i>{currentAsset.address === ZERO_ADDRESS ? 'Deposit MON' : 'Approve exact amount'}</span>{currentAsset.address !== ZERO_ADDRESS && <span className={depositStepActive ? 'step-current' : ''}><i>2</i>Deposit to margin</span>}</div>}
+          {(withdrawTarget ? withdrawStage : depositStage) && <div className={/revert|exceed|reject|did not|below/i.test(withdrawTarget ? withdrawStage : depositStage) ? 'deposit-stage stage-error' : 'deposit-stage'} role="status">{actionBusy ? <LoaderCircle size={14} className="spin" /> : <CircleAlert size={14} />}{withdrawTarget ? withdrawStage : depositStage}</div>}
+          {!withdrawTarget && (depositApprovalHash || depositTxHash) && <div className="deposit-receipts">{depositApprovalHash && <a href={explorerTx(depositApprovalHash)} target="_blank" rel="noreferrer">Approval transaction <ExternalLink size={12} /></a>}{depositTxHash && <a href={explorerTx(depositTxHash)} target="_blank" rel="noreferrer">Deposit transaction <ExternalLink size={12} /></a>}</div>}
+          {withdrawTarget && withdrawTxHash && <div className="deposit-receipts"><a href={explorerTx(withdrawTxHash)} target="_blank" rel="noreferrer">Withdrawal transaction <ExternalLink size={12} /></a></div>}
+          <button className="submit-order deposit-submit" type="submit" disabled={!!actionBusy || !(withdrawTarget ? withdrawInput : depositInput) || !onMonad || rpcState !== 'ready' || !balanceReadReady || !currentAsset.address || !marginAddress || (!!withdrawTarget && !currentAsset.margin)}>{actionBusy === 'withdraw' ? <><LoaderCircle size={16} className="spin" />Processing withdrawal…</> : actionBusy === 'deposit' ? <><LoaderCircle size={16} className="spin" />Processing wallet steps…</> : <>{withdrawTarget ? 'Review withdrawal' : 'Review deposit'} <ArrowUpRight size={16} /></>}</button>
+        </form><p className="form-disclaimer">{withdrawTarget ? 'The amount is limited to your current Kuru margin balance. Your connected wallet signs the withdrawal, and the balance change is read back after confirmation.' : 'If approval is needed, it is for this exact amount. Approval and deposit require separate wallet confirmations. Closing the dialog does not cancel a submitted transaction.'}</p>
       </section>
     </div>}
   </div>

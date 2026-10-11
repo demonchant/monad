@@ -15,6 +15,10 @@ npm run dev
 
 The Vite dev server prints a local URL. This client-only app does not need a private server, database, or secret environment variable.
 
+## Public GitHub Pages deployment
+
+The repository includes `.github/workflows/deploy-pages.yml`. To enable its first public deployment, open the repository's **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**, and save. The workflow then builds and publishes `dist` on pushes to `main`; the expected site address is `https://demonchant.github.io/monad/`. The Vite base path is adjusted for this repository URL only in GitHub Actions builds. GitHub Pages setup requires this one-time repository setting.
+
 Run the browser flow checks with `npm run test:e2e`. Install Playwright Chromium with `npx playwright install chromium`, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an installed Chromium-compatible browser. Tests do not use a demo wallet or submit transactions.
 
 The pinned Playwright container is available for the project playbook's isolated browser run:

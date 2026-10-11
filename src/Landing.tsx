@@ -13,7 +13,7 @@ function Brand() {
 function OrderFlowCard() {
   return <div className="flow-card" aria-label="Illustration of an order lifecycle, not live market data">
     <div className="flow-card-top"><span className="flow-label"><span className="flow-live-dot" /> ORDER LIFECYCLE</span><span className="flow-demo-label">WORKFLOW OVERVIEW</span></div>
-    <div className="flow-pair"><span className="flow-token">M</span><div><strong>MON / USDC</strong><small>KURU SPOT MARKET</small></div><span className="flow-mainnet">MONAD <b>143</b></span></div>
+    <div className="flow-pair"><span className="flow-token">M</span><div><strong>MON / USDC</strong><small>DEFAULT MARKET EXAMPLE</small></div><span className="flow-mainnet">MONAD <b>143</b></span></div>
     <div className="flow-separator" />
     <div className="flow-order-row"><div><span className="flow-label">ORDER INTENT</span><strong>Post-only limit</strong></div><span className="flow-state flow-reviewed"><Check size={13} /> Reviewed</span></div>
     <div className="flow-line"><i /><i /><i /></div>
@@ -62,7 +62,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-capabilities" aria-label="Product capabilities">
-        <article className="capability-card"><span className="capability-index">01</span><div className="capability-icon"><CircleDot size={18} /></div><h3>Review before signing</h3><p>Choose a Kuru market, inspect the book and margin balances, then review a post-only limit order before your wallet is asked to sign.</p><span className="capability-foot">MARKET · PRICE · SIZE · MARGIN</span></article>
+        <article className="capability-card"><span className="capability-index">01</span><div className="capability-icon"><CircleDot size={18} /></div><h3>Review before signing</h3><p>Choose from the supported Kuru market list, inspect its book and margin balances, then review a post-only limit order before signing. MON-USDC is preferred as the initial market when available.</p><span className="capability-foot">MARKET · PRICE · SIZE · MARGIN</span></article>
         <article className="capability-card"><span className="capability-index">02</span><div className="capability-icon"><ShieldCheck size={18} /></div><h3>Check the contract state</h3><p>After submission, the desk uses the transaction receipt and a separate Kuru order read to establish the order’s current state.</p><span className="capability-foot">RECEIPT → EVENT → ORDER READ</span></article>
         <article className="capability-card"><span className="capability-index">03</span><div className="capability-icon"><ArrowDown size={18} /></div><h3>Pick up after refresh</h3><p>Order intent is tracked in this browser and reconciled against on-chain state. It is not a full wallet-wide order history.</p><span className="capability-foot">LOCAL TRACKING · CHAIN STATE WINS</span></article>
       </section>

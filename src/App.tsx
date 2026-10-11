@@ -92,6 +92,9 @@ function TradingDesk() {
   const [marketMenuOpen, setMarketMenuOpen] = useState(false)
   const [marketQuery, setMarketQuery] = useState('')
   const [marketListLimit, setMarketListLimit] = useState(80)
+  const [marketSearchResults, setMarketSearchResults] = useState<Market[]>([])
+  const [marketSearchStatus, setMarketSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [marketSearchError, setMarketSearchError] = useState('')
   const [marketParamsState, setMarketParamsState] = useState<MarketParams | null>(null)
   const [paramsMarketAddress, setParamsMarketAddress] = useState('')
   const [paramsError, setParamsError] = useState('')
@@ -143,9 +146,11 @@ function TradingDesk() {
   const selectedMarket = useMemo(() => markets.find((m) => m.address.toLowerCase() === selectedMarketAddress.toLowerCase()) ?? null, [markets, selectedMarketAddress])
   const matchingMarkets = useMemo(() => {
     const query = marketQuery.trim().toLowerCase()
-    if (!query) return markets
-    return markets.filter((market) => `${marketPair(market)} ${market.baseName} ${market.quoteName} ${market.address} ${market.baseAddress} ${market.quoteAddress}`.toLowerCase().includes(query))
-  }, [markets, marketQuery])
+    const byAddress = new Map([...markets, ...marketSearchResults].map((market) => [market.address.toLowerCase(), market]))
+    const combined = [...byAddress.values()]
+    if (!query) return combined
+    return combined.filter((market) => `${marketPair(market)} ${market.baseName} ${market.quoteName} ${market.address} ${market.baseAddress} ${market.quoteAddress}`.toLowerCase().includes(query))
+  }, [markets, marketSearchResults, marketQuery])
   const shownMarkets = matchingMarkets.slice(0, marketListLimit)
   const marketAddress = selectedMarket?.address
   const marketParams = paramsMarketAddress === selectedMarketAddress ? marketParamsState : null
@@ -243,6 +248,26 @@ function TradingDesk() {
     void loadMarkets()
     return () => marketRequest.current?.abort()
   }, [loadMarkets])
+
+  useEffect(() => {
+    const query = marketQuery.trim()
+    if (!query) { setMarketSearchResults([]); setMarketSearchStatus('idle'); setMarketSearchError(''); return }
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setMarketSearchStatus('loading')
+      setMarketSearchError('')
+      void fetchMarkets(controller.signal, undefined, query).then((result) => {
+        if (controller.signal.aborted) return
+        setMarketSearchResults(result)
+        setMarketSearchStatus('ready')
+      }).catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        setMarketSearchStatus('error')
+        setMarketSearchError(error instanceof Error ? error.message : 'Kuru market search is temporarily unavailable.')
+      })
+    }, 300)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [marketQuery])
 
   useEffect(() => {
     let active = true
@@ -620,8 +645,10 @@ function TradingDesk() {
             <label className="market-search-label" htmlFor="market-search">Search markets</label>
             <input id="market-search" className="market-search" type="search" value={marketQuery} placeholder="Pair, token, or address" autoComplete="off" onChange={(event) => { setMarketQuery(event.target.value); setMarketListLimit(80) }} />
             <div id="market-directory-options" className="market-results" role="listbox" aria-label="Kuru spot markets">
+              {marketSearchStatus === 'loading' && <p className="market-no-results" role="status">Searching Kuru markets…</p>}
+              {marketSearchStatus === 'error' && <p className="market-no-results" role="status">{marketSearchError} Showing any matching loaded markets.</p>}
               {shownMarkets.map((market) => <button key={market.address} role="option" aria-selected={market.address.toLowerCase() === selectedMarketAddress.toLowerCase()} type="button" onClick={() => { setSelectedMarketAddress(market.address); setPriceInput(''); setSizeInput(''); setMarketMenuOpen(false); setMarketQuery(''); setMarketListLimit(80) }}><span>{marketPair(market)}<small>{market.baseName} / {market.quoteName}</small></span><small>{market.address.slice(0, 6)}…{market.address.slice(-4)}</small></button>)}
-              {!matchingMarkets.length && <p className="market-no-results">No listed markets match that search.</p>}
+              {!matchingMarkets.length && marketSearchStatus !== 'loading' && marketSearchStatus !== 'error' && <p className="market-no-results">No listed markets match that search.</p>}
             </div>
             {matchingMarkets.length > shownMarkets.length && <button className="market-show-more" type="button" onClick={() => setMarketListLimit((limit) => limit + 80)}>Show more markets ({matchingMarkets.length - shownMarkets.length} remaining)</button>}
             <div className="market-directory-meta">{marketsState === 'loading' ? `Discovering markets · ${marketProgress.scanned.toLocaleString()} checked · ${marketProgress.found.toLocaleString()} listed` : `${markets.length.toLocaleString()} listed markets · Kuru directory`}</div>

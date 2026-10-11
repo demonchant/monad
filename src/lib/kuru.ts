@@ -121,10 +121,10 @@ function safeAddress(value: unknown, label: string): Address {
   return getAddress(value)
 }
 
-export async function fetchMarkets(signal?: AbortSignal, onProgress?: (scanned: number, found: number) => void): Promise<Market[]> {
+export async function fetchMarkets(signal?: AbortSignal, onProgress?: (scanned: number, found: number) => void, query = ''): Promise<Market[]> {
   // Use the same current market-search endpoint as Kuru's frontend. The v1
   // markets history endpoint also contains obsolete and unsupported records.
-  const response = await fetch(`${KURU_API}/api/v2/markets/search?limit=100&q=`, { signal })
+  const response = await fetch(`${KURU_API}/api/v2/markets/search?limit=100&q=${encodeURIComponent(query)}`, { signal })
   if (!response.ok) throw new Error(`Kuru market search returned HTTP ${response.status}.`)
   const body: unknown = await response.json()
   const root = body && typeof body === 'object' ? (body as { data?: unknown }).data : undefined

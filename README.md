@@ -1,14 +1,16 @@
 # Order Steward
 
-**A Kuru spot-order desk for placing, tracking, and cancelling post-only limit orders on Monad.**
+**A focused Kuru spot-order desk on Monad, with a public product landing page and a direct path into the trading workflow.**
+
+Live site: [demonchant.github.io/monad](https://demonchant.github.io/monad/). Use **Open the spot desk** to enter the app.
 
 Order Steward keeps an order's intent and transaction evidence together, then reconciles the order against Kuru's on-chain state after refresh. It does not custody keys or submit a transaction without the connected wallet's signature.
 
-> **Verification status:** the web app and read paths are implemented and build locally. No wallet transaction has been signed as part of this build, so approval, funding, order placement and cancellation remain `IMPLEMENTED / UNVERIFIED` until independently read back on Monad.
+> **Verification status:** the Pages deployment succeeded and the user reports the public site opens and MetaMask connects. No wallet transaction has been signed as part of this build, so approval, funding, order placement and cancellation remain `IMPLEMENTED / UNVERIFIED` until independently read back on Monad.
 
 ## Judge path
 
-1. Open the app and wait for the Kuru market directory and order book to load. A live-data error stays visible; it is never replaced with sample orders.
+1. Open the landing page and choose **Open the spot desk**. Wait for the Kuru market directory and order book to load. A live-data error stays visible; it is never replaced with sample orders.
 2. Connect an injected wallet on Monad mainnet (chain ID `143`). The app will request a network switch only after you choose that action.
 3. Select a market; inspect both the wallet token balance and Kuru margin balance.
 4. If required, deposit the market's base or quote token into Kuru margin. Review and sign approval and deposit separately.

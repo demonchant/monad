@@ -14,6 +14,7 @@ import {
   ZERO_ADDRESS, decimalPlaces, type Book, type Market, type MarketParams,
 } from './lib/kuru'
 import { loadOrders, readOrder, reconcileOrders, saveOrders, type OrderStatus, type TrackedOrder } from './lib/orders'
+import LandingPage from './Landing'
 import './App.css'
 
 type Toast = { kind: 'success' | 'error' | 'info'; message: string; hash?: Hash; approvalHash?: Hash }
@@ -82,7 +83,7 @@ function StatusPill({ status }: { status: OrderStatus }) {
   return <span className={`status-pill status-${status}`}><i />{statusLabel(status)}</span>
 }
 
-function App() {
+function TradingDesk() {
   const [markets, setMarkets] = useState<Market[]>([])
   const [marketsState, setMarketsState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [marketError, setMarketError] = useState('')
@@ -562,7 +563,7 @@ function App() {
 
   return <div className="app-shell">
     <header className="topbar">
-      <a className="brand" href="#top" aria-label="Order Steward home"><span className="brand-mark"><span /></span><span className="brand-name">order<span>steward</span></span></a>
+      <a className="brand" href={import.meta.env.BASE_URL} aria-label="Order Steward home"><span className="brand-mark"><span /></span><span className="brand-name">order<span>steward</span></span></a>
       <nav className={`top-nav ${mobileMenu ? 'nav-open' : ''}`} aria-label="Primary navigation">
         <a className="nav-link active" href="#trade" onClick={() => setMobileMenu(false)}>Spot desk</a>
         <a className="nav-link" href="#orders" onClick={() => { setOrderFilter('all'); setMobileMenu(false) }}>Order ledger</a>
@@ -697,6 +698,11 @@ function App() {
       </section>
     </div>}
   </div>
+}
+
+function App() {
+  const deskRequested = new URLSearchParams(window.location.search).get('desk') === '1'
+  return deskRequested ? <TradingDesk /> : <LandingPage />
 }
 
 export default App

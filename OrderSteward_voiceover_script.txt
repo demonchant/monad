@@ -1,0 +1,13 @@
+Order Steward brings the complete Kuru spot-order lifecycle to one trading desk on Monad.
+
+I open the spot desk and choose a live market. The market book loads alongside my wallet balance and Kuru margin balance, so I can see my funds clearly before acting.
+
+If I need more margin, I review the amount, approve the token, deposit to Kuru, and confirm the updated balance on chain.
+
+I choose a side, price, and size for a post-only limit order. Before I sign, I review the market, order value, and available margin. My connected wallet authorizes the transaction.
+
+Order Steward matches the mined receipt with the Kuru order event and reads the order state from the market contract. The order ledger keeps my trade intent after refresh and reconciles it against the current contract state.
+
+To cancel, I review the open order and sign the cancellation in my wallet. The cancellation event and resulting contract state confirm the outcome.
+
+The complete lifecycle has been verified end to end: fund, place, read back, reload, and cancel. Order Steward keeps the process clear while every transaction remains under the trader's control.

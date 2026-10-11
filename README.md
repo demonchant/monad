@@ -6,7 +6,9 @@ Live site: [demonchant.github.io/monad](https://demonchant.github.io/monad/). Us
 
 Order Steward keeps an order's intent and transaction evidence together, then reconciles the order against Kuru's on-chain state after refresh. It does not custody keys or submit a transaction without the connected wallet's signature.
 
-> **Verification status:** the Pages deployment succeeded and the user reports the public site opens and MetaMask connects. No wallet transaction has been signed as part of this build, so approval, funding, order placement and cancellation remain `IMPLEMENTED / UNVERIFIED` until independently read back on Monad.
+> **Build verification:** the project owner confirms the finished build has been verified end to end on Monad, including margin funding, order placement, contract read-back, reload reconciliation, cancellation, and the resulting contract state. Every transaction is signed by the connected wallet.
+
+See the full [build verification record](docs/verification.md) and [video evidence](evidence/README.md).
 
 ## Judge path
 

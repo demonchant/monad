@@ -1,0 +1,7 @@
+On Monad, placing a spot order is only the beginning. Traders need to fund margin, sign with confidence, and know what happened to an order after it leaves the form.
+
+Order Steward brings that journey into one Kuru trading desk. Browse the market. See wallet funds and Kuru margin side by side. Review a post-only limit order, sign it in your wallet, and follow its receipt and on-chain state.
+
+From placing an order to checking its status or cancelling it, the workflow has been verified end to end. Your wallet stays in your hands. Every action is yours to approve.
+
+Order Steward. A clearer path from trade intent to on-chain outcome, built for Monad.

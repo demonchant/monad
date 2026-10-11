@@ -1,0 +1,1 @@
+A limit order is more than a click. Order Steward brings Kuru spot trading on Monad into one clear flow: explore the market, see wallet and margin balances, review your order, sign with your wallet, and track the on-chain result. Place it. Follow it. Cancel with confidence. Your keys stay yours. Order Steward: trade with follow-through.

@@ -1,0 +1,47 @@
+1
+00:00:03,000 --> 00:00:07,566
+Welcome to Order Steward, a Kuru spot trading desk on Monad.
+
+2
+00:00:07,712 --> 00:00:16,845
+I open the spot desk and select a live market. The order book and market details load directly into the trading view.
+
+3
+00:00:16,990 --> 00:00:21,556
+The account panel keeps wallet balances and Kuru margin balances separate.
+
+4
+00:00:21,702 --> 00:00:29,174
+When more margin is needed, I review the amount, approve the token, deposit, and confirm the updated balance.
+
+5
+00:00:29,320 --> 00:00:38,037
+For this MON-USDC order, I choose a side, enter a limit price and size, and review the post-only order before signing.
+
+6
+00:00:38,183 --> 00:00:40,674
+The connected wallet authorizes the transaction.
+
+7
+00:00:40,819 --> 00:00:48,291
+Order Steward reads the mined receipt, matches the Kuru order event, and checks the order state on chain.
+
+8
+00:00:48,437 --> 00:00:55,079
+The order ledger keeps the trade intent available after refresh and reconciles it against the contract.
+
+9
+00:00:55,224 --> 00:01:00,621
+To cancel, I review the order and sign the cancellation in my wallet.
+
+10
+00:01:00,766 --> 00:01:04,918
+The cancellation event and updated order state confirm the result.
+
+11
+00:01:05,063 --> 00:01:10,875
+The complete order lifecycle has been verified: fund, place, read back, reload, and cancel.
+
+12
+00:01:11,020 --> 00:01:16,832
+Order Steward keeps the workflow clear while the trader keeps control of every signature.

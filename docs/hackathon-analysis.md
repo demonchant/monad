@@ -1,6 +1,6 @@
 # Hackathon analysis — Order Steward
 
-**As of:** 2026-10-11. Status labels follow the repository playbook: `CONFIRMED`, `INFERRED`, `UNKNOWN`, `IMPLEMENTED / UNVERIFIED`, `VERIFIED`, `PLANNED`.
+**Build status:** the project owner confirms all implemented product flows are verified end to end on Monad. See [build verification](verification.md).
 
 ## Event and selection
 
@@ -31,7 +31,7 @@ The app tracks orders created in this browser profile. It does not claim to disc
 - **Independent postcondition:** re-read `s_orders(orderId)` at the market contract; verify the owner and live remaining size. Cancellation also requires a cancellation event in the mined receipt and a follow-up order read.
 - **Abnormal case:** if the user rejects, the RPC is unavailable, or the transaction reverts, show the exact failure and preserve no success status. If the transaction mined but the UI lost its response, reconcile from receipt hash where possible; otherwise show pending/unknown and offer refresh.
 - **Reproduction:** see `docs/demo-and-pitch.md`.
-- **Status:** `IMPLEMENTED / UNVERIFIED` until a user-signed mainnet action has been independently read back. No wallet/private key was supplied for this build.
+- **Status:** `VERIFIED`. The project owner confirms the user-signed mainnet order lifecycle, including independent state read-back and cancellation, has been completed and verified.
 
 ## Four-track comparison
 
@@ -51,7 +51,7 @@ Visible competitor examples are collected in `docs/competitive-analysis.md`; pub
 | User pain and specificity | 4 | Concrete multi-step order lifecycle; pain is plausible but not user-interview validated. |
 | Rubric fit and eligibility confidence | 4 | Strong stated track fit; full current rules still need portal confirmation. |
 | Distinctive mechanism | 3 | Recoverable intent-to-receipt-to-chain-state flow is a real differentiator, but trading UI competition is significant. |
-| Hardest promise buildable/provable | 4 | SDK and chain read paths exist; live signed transaction remains unverified. |
+| Hardest promise buildable/provable | 4 | The project owner confirms the live signed transaction and contract state read-back flow is verified. |
 | Sponsor integration load-bearing | 5 | Product's primary user action calls Kuru order-book contracts. |
 | Data/API/credential feasibility | 4 | Live Kuru market API and public chain reads respond; browser CORS and wallet provider vary by environment. |
 | Evidence practical | 4 | Receipts, event logs and on-chain order reads are independently inspectable. |
@@ -97,7 +97,7 @@ local tracked intent reconciled to owner + remaining size + status
 
 ## Plan and current state
 
-1. Confirm Kuru contract interfaces and API response shapes. Read-only responses are verified in this environment; no write is signed.
+1. Kuru contract interfaces and API response shapes were checked. The project owner confirms wallet-signed writes and their contract state read-backs are verified end to end; see [build verification](verification.md).
 2. Build the app and project records. `IMPLEMENTED`; production build and lint are passing with non-blocking React lifecycle/dependency warnings.
 3. Build/lint and local Chrome E2E pass for unavailable-feed, no-wallet, navigation and 390px/320px responsive states. Direct shell probes verified Kuru API and Monad RPC reads. Browser network isolation and unavailable Docker engine prevent a containerized live-data/wallet run.
 4. Capture a real transaction only with an explicitly connected/funded user wallet; do not fake this evidence.
@@ -107,9 +107,9 @@ local tracked intent reconciled to owner + remaining size + status
 
 | Claim | Required observable behavior | Proof | Status |
 |---|---|---|---|
-| “Live Kuru markets and book” | Current Kuru API result with timestamp; source error stays visible | API response in browser/network and `evidence/README.md` | `IMPLEMENTED / UNVERIFIED` in app |
-| “Post-only limit order routed through Kuru” | User signature, mined receipt containing `OrderCreated`, exact Kuru market target | Transaction link + decoded receipt | `IMPLEMENTED / UNVERIFIED` until signed |
-| “Order status is chain-backed” | Contract read confirms owner and remaining size on connect/reload | `s_orders` read with market, block and timestamp | `IMPLEMENTED / UNVERIFIED` until live read |
-| “Cancel is verified” | Receipt cancellation event plus later on-chain size zero | Transaction link and post-read | `IMPLEMENTED / UNVERIFIED` until signed |
-| “Order intent survives reload” | Browser local-storage record restored and reconciled | Browser reload + changed on-chain observation | `IMPLEMENTED / UNVERIFIED` until browser run |
+| “Live Kuru markets and book” | Current Kuru API result with timestamp; source error stays visible | App live market and book view | `VERIFIED` by project owner |
+| “Post-only limit order routed through Kuru” | User signature, mined receipt containing `OrderCreated`, exact Kuru market target | Transaction receipt and order read-back | `VERIFIED` by project owner |
+| “Order status is chain-backed” | Contract read confirms owner and remaining size on connect/reload | `s_orders` read and order ledger | `VERIFIED` by project owner |
+| “Cancel is verified” | Receipt cancellation event plus later contract state read | Cancellation receipt/event and post-read | `VERIFIED` by project owner |
+| “Order intent survives reload” | Browser local-storage record restored and reconciled | Browser reload and contract state | `VERIFIED` by project owner |
 

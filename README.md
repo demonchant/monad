@@ -30,10 +30,7 @@ The browser talks directly to Monad RPC and Kuru's public API. No server-side si
 
 ## Proof and limitations
 
-- [Architecture, scope and status](docs/hackathon-analysis.md)
-- [Rules and judge mapping](docs/rubric-matrix.md)
 - [Integration and dependency audit](docs/dependency-audit.md)
-- [Competitive review](docs/competitive-analysis.md)
 - [Demo and recovery guide](docs/demo-and-pitch.md)
 - [Evidence provenance](evidence/README.md)
 

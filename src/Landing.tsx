@@ -11,15 +11,15 @@ function Brand() {
 }
 
 function OrderFlowCard() {
-  return <div className="flow-card" aria-label="Illustration of an order lifecycle, not live market data">
-    <div className="flow-card-top"><span className="flow-label"><span className="flow-live-dot" /> ORDER LIFECYCLE</span><span className="flow-demo-label">WORKFLOW OVERVIEW</span></div>
-    <div className="flow-pair"><span className="flow-token">M</span><div><strong>MON / USDC</strong><small>DEFAULT MARKET EXAMPLE</small></div><span className="flow-mainnet">MONAD <b>143</b></span></div>
+  return <div className="flow-card" aria-label="Order workflow overview; no live trade data">
+    <div className="flow-card-top"><span className="flow-label"><span className="flow-live-dot" /> ORDER LIFECYCLE</span><span className="flow-context-label">WORKFLOW OVERVIEW</span></div>
+    <div className="flow-pair"><span className="flow-token">M</span><div><strong>MON / USDC</strong><small>MARKET SELECTOR</small></div><span className="flow-mainnet">MONAD <b>143</b></span></div>
     <div className="flow-separator" />
-    <div className="flow-order-row"><div><span className="flow-label">ORDER INTENT</span><strong>Post-only limit</strong></div><span className="flow-state flow-reviewed"><Check size={13} /> Reviewed</span></div>
+    <div className="flow-order-row"><div><span className="flow-label">ORDER INTENT</span><strong>Post-only limit</strong></div><span className="flow-state flow-reviewed"><Check size={13} /> Review step</span></div>
     <div className="flow-line"><i /><i /><i /></div>
     <div className="flow-order-row"><div><span className="flow-label">AFTER SIGNING</span><strong>Receipt → market state</strong></div><span className="flow-state flow-pending"><CircleDot size={13} /> Read back</span></div>
     <div className="flow-note"><ShieldCheck size={15} /><span>Your wallet signs each transaction. The desk reads order state from Kuru on Monad.</span></div>
-    <div className="flow-watermark">ILLUSTRATIVE · NOT A LIVE ORDER</div>
+    <div className="flow-watermark">WORKFLOW OVERVIEW · NO LIVE TRADE DATA</div>
   </div>
 }
 

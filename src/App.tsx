@@ -87,8 +87,11 @@ function TradingDesk() {
   const [markets, setMarkets] = useState<Market[]>([])
   const [marketsState, setMarketsState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [marketError, setMarketError] = useState('')
+  const [marketProgress, setMarketProgress] = useState({ scanned: 0, found: 0 })
   const [selectedMarketAddress, setSelectedMarketAddress] = useState('')
   const [marketMenuOpen, setMarketMenuOpen] = useState(false)
+  const [marketQuery, setMarketQuery] = useState('')
+  const [marketListLimit, setMarketListLimit] = useState(80)
   const [marketParamsState, setMarketParamsState] = useState<MarketParams | null>(null)
   const [paramsMarketAddress, setParamsMarketAddress] = useState('')
   const [paramsError, setParamsError] = useState('')
@@ -135,8 +138,15 @@ function TradingDesk() {
   const [refreshing, setRefreshing] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const toastTimer = useRef<number | undefined>(undefined)
+  const marketRequest = useRef<AbortController | null>(null)
 
   const selectedMarket = useMemo(() => markets.find((m) => m.address.toLowerCase() === selectedMarketAddress.toLowerCase()) ?? null, [markets, selectedMarketAddress])
+  const matchingMarkets = useMemo(() => {
+    const query = marketQuery.trim().toLowerCase()
+    if (!query) return markets
+    return markets.filter((market) => `${marketPair(market)} ${market.baseName} ${market.quoteName} ${market.address} ${market.baseAddress} ${market.quoteAddress}`.toLowerCase().includes(query))
+  }, [markets, marketQuery])
+  const shownMarkets = matchingMarkets.slice(0, marketListLimit)
   const marketAddress = selectedMarket?.address
   const marketParams = paramsMarketAddress === selectedMarketAddress ? marketParamsState : null
   const book = bookMarketAddress === selectedMarketAddress ? bookData : null
@@ -148,6 +158,28 @@ function TradingDesk() {
   const onMonad = chainId === MONAD_CHAIN_ID
   const selectedBalanceScope = account && selectedMarket ? `${account.toLowerCase()}:${selectedMarket.address.toLowerCase()}` : ''
   const balanceReadReady = !!selectedBalanceScope && balanceScope === selectedBalanceScope && balanceState === 'ready'
+
+  const loadMarkets = useCallback(async () => {
+    marketRequest.current?.abort()
+    const controller = new AbortController()
+    marketRequest.current = controller
+    setMarketsState('loading')
+    setMarketError('')
+    setMarketProgress({ scanned: 0, found: 0 })
+    try {
+      const next = await fetchMarkets(controller.signal, (scanned, found) => setMarketProgress({ scanned, found }))
+      if (controller.signal.aborted) return
+      setMarkets(next)
+      setMarketsState('ready')
+      setMarketError('')
+      setSelectedMarketAddress((current) => next.some((market) => market.address.toLowerCase() === current.toLowerCase()) ? current :
+        (next.find((market) => market.address.toLowerCase() === KURU_MON_USDC_MARKET.toLowerCase()) ?? next.find((market) => market.baseSymbol === 'MON' && market.quoteSymbol === 'USDC') ?? next[0])?.address ?? '')
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setMarketsState('error')
+      setMarketError(error instanceof Error ? error.message : 'Kuru market directory could not be read.')
+    }
+  }, [])
   const currentBalances = balanceScope === selectedBalanceScope && selectedBalanceScope ? balances : emptyBalances
   const currentBalanceError = balanceErrorScope === selectedBalanceScope ? balanceError : ''
   const bookAge = bookUpdated ? clockNow - bookUpdated : Number.POSITIVE_INFINITY
@@ -208,16 +240,9 @@ function TradingDesk() {
   }, [checkRpc])
 
   useEffect(() => {
-    let active = true
-    const load = () => fetchMarkets().then((next) => {
-      if (!active) return
-      setMarkets(next); setMarketsState('ready'); setMarketError('')
-      if (next.length) setSelectedMarketAddress((current) => current || (next.find((m) => m.address.toLowerCase() === KURU_MON_USDC_MARKET.toLowerCase()) ?? next.find((m) => m.baseSymbol === 'MON' && m.quoteSymbol === 'USDC') ?? next[0]).address)
-    }).catch((error: unknown) => { if (active) { setMarketsState('error'); setMarketError(error instanceof Error ? error.message : 'Kuru market directory could not be read.') } })
-    void load()
-    const timer = window.setInterval(() => void load(), 60_000)
-    return () => { active = false; window.clearInterval(timer) }
-  }, [])
+    void loadMarkets()
+    return () => marketRequest.current?.abort()
+  }, [loadMarkets])
 
   useEffect(() => {
     let active = true
@@ -533,7 +558,7 @@ function TradingDesk() {
     } finally { setActionBusy('') }
   }
 
-  const refreshEverything = async () => { setRefreshing(true); await Promise.allSettled([refreshBook(), refreshBalances(), refreshOrders()]); setRefreshing(false) }
+  const refreshEverything = async () => { setRefreshing(true); await Promise.allSettled([loadMarkets(), refreshBook(), refreshBalances(), refreshOrders()]); setRefreshing(false) }
   const useBookPrice = () => { const price = side === 'buy' ? bestBid : bestAsk; if (price) setPriceInput(String(price)) }
   const setMaxSize = () => {
     if (!marketParams || !inputPriceRaw || inputPriceRaw <= 0n) return
@@ -588,10 +613,20 @@ function TradingDesk() {
           <div className="panel-heading"><div><div className="section-kicker">01 <span>/</span> MARKET</div><h2 id="trade-title">Order desk</h2></div>
             <button className="icon-button" onClick={() => void refreshEverything()} type="button" disabled={refreshing} aria-label="Refresh market, balances, and orders" title="Refresh market, balances, and orders"><RefreshCw size={16} className={refreshing ? 'spin' : ''} /></button></div>
 
-          <div className="market-select-wrap"><button type="button" className="market-select" aria-expanded={marketMenuOpen} onClick={() => setMarketMenuOpen(!marketMenuOpen)} disabled={marketsState !== 'ready' || !markets.length || !!actionBusy}>
+          <div className="market-select-wrap"><button type="button" className="market-select" aria-haspopup="listbox" aria-controls="market-directory-options" aria-expanded={marketMenuOpen} onClick={() => setMarketMenuOpen(!marketMenuOpen)} disabled={marketsState !== 'ready' || !markets.length || !!actionBusy}>
             <span className="pair-token pair-primary">{selectedMarket?.baseSymbol.slice(0, 1) ?? 'M'}</span><span className="pair-token pair-secondary">{selectedMarket?.quoteSymbol.slice(0, 1) ?? 'U'}</span>
             <span className="pair-text"><strong>{selectedMarket ? marketPair(selectedMarket) : marketsState === 'loading' ? 'Loading markets…' : marketsState === 'error' ? 'Market feed unavailable' : 'No Kuru markets found'}</strong><small>SPOT · POST-ONLY LIMITS</small></span><ChevronDown size={17} className={marketMenuOpen ? 'rotate' : ''} />
-          </button>{marketMenuOpen && <div className="market-menu" role="listbox" aria-label="Kuru markets">{markets.map((market) => <button key={market.address} role="option" aria-selected={market.address === selectedMarketAddress} type="button" onClick={() => { setSelectedMarketAddress(market.address); setPriceInput(''); setSizeInput(''); setMarketMenuOpen(false) }}><span>{marketPair(market)}</span><small>{market.address.slice(0, 6)}…{market.address.slice(-4)}</small></button>)}</div>}</div>
+          </button>{marketMenuOpen && <div className="market-menu" aria-label="Kuru markets">
+            <label className="market-search-label" htmlFor="market-search">Search markets</label>
+            <input id="market-search" className="market-search" type="search" value={marketQuery} placeholder="Pair, token, or address" autoComplete="off" onChange={(event) => { setMarketQuery(event.target.value); setMarketListLimit(80) }} />
+            <div id="market-directory-options" className="market-results" role="listbox" aria-label="Kuru spot markets">
+              {shownMarkets.map((market) => <button key={market.address} role="option" aria-selected={market.address.toLowerCase() === selectedMarketAddress.toLowerCase()} type="button" onClick={() => { setSelectedMarketAddress(market.address); setPriceInput(''); setSizeInput(''); setMarketMenuOpen(false); setMarketQuery(''); setMarketListLimit(80) }}><span>{marketPair(market)}<small>{market.baseName} / {market.quoteName}</small></span><small>{market.address.slice(0, 6)}…{market.address.slice(-4)}</small></button>)}
+              {!matchingMarkets.length && <p className="market-no-results">No listed markets match that search.</p>}
+            </div>
+            {matchingMarkets.length > shownMarkets.length && <button className="market-show-more" type="button" onClick={() => setMarketListLimit((limit) => limit + 80)}>Show more markets ({matchingMarkets.length - shownMarkets.length} remaining)</button>}
+            <div className="market-directory-meta">{marketsState === 'loading' ? `Discovering markets · ${marketProgress.scanned.toLocaleString()} checked · ${marketProgress.found.toLocaleString()} listed` : `${markets.length.toLocaleString()} listed markets · Kuru directory`}</div>
+          </div>}</div>
+          {marketsState === 'loading' && <div className="market-load-status" role="status"><LoaderCircle size={13} className="spin" />Discovering Kuru markets · {marketProgress.scanned.toLocaleString()} checked · {marketProgress.found.toLocaleString()} listed</div>}
 
           <div className="market-data-row">
             <div className="quote-box"><span className="data-label">BEST BID</span><strong className="bid-value">{bestBid === null ? '—' : fmtNum(bestBid, 8)}</strong><small>{book?.bids.length ? `${book.bids.length} levels` : 'No bid depth'}</small></div>
@@ -600,7 +635,7 @@ function TradingDesk() {
           </div>
           <div className="source-line"><span className={`source-dot ${currentBookState === 'ready' && bookFresh ? 'source-good' : currentBookState === 'error' ? 'source-bad' : ''}`} />
             <span>{currentBookState === 'loading' ? 'Reading Kuru book…' : currentBookState === 'error' ? currentBookError : book?.bids.length && book.asks.length ? `Kuru book · block ${book.syncBlock}` : book ? 'Kuru book · one-sided or empty depth' : 'Kuru book · waiting for selected market'}</span><span className="source-time">{visibleBookUpdated ? timeAgo(visibleBookUpdated, clockNow) : '—'}</span></div>
-          {marketsState === 'error' && <div className="inline-error" role="alert"><CircleAlert size={15} />{marketError}<button onClick={() => { setMarketsState('loading'); void fetchMarkets().then((data) => { setMarkets(data); setMarketsState('ready'); setMarketError('') }).catch((e) => { setMarketsState('error'); setMarketError(e.message) }) }} type="button">Retry</button></div>}
+          {marketsState === 'error' && <div className="inline-error" role="alert"><CircleAlert size={15} />{marketError}<button onClick={() => void loadMarkets()} type="button">Retry</button></div>}
           {currentParamsError && <div className="inline-error" role="alert"><CircleAlert size={15} />{currentParamsError}</div>}
           {wrongMarketParams && <div className="inline-error" role="alert"><CircleAlert size={15} />Market API token addresses or decimals do not match the on-chain parameters. Trading is disabled.</div>}
           {currentBookState === 'error' && <div className="inline-error" role="alert"><CircleAlert size={15} />{currentBookError} Order placement is disabled until a current book read succeeds.</div>}

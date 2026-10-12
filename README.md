@@ -51,7 +51,7 @@ This project is released under the [MIT License](LICENSE). Third-party dependenc
 
 ## AI coding tools
 
-OpenAI Codex was used on October 12, 2026, to review hackathon submission requirements and prepare compliance documentation. Add any AI coding tools used during the original product implementation, with their role, before submitting.
+OpenAI Codex was the only AI tool used. It assisted with product implementation and, on October 12, 2026, reviewed the hackathon requirements and prepared compliance documentation. No other AI coding tools were used.
 
 ## Proof and limitations
 

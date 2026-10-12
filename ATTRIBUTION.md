@@ -21,4 +21,4 @@ Names and trademarks remain the property of their respective owners. External se
 
 ## Original materials
 
-The repository history begins with the product implementation commit on October 11, 2026. That establishes when this Git history was created, not whether every design, asset, snippet, or other foundation originated during the hackathon window. The project owner should add accurate attribution here for any pre-existing starter, copied code, assets, or other externally sourced material before submission.
+The project owner confirms that Order Steward uses no pre-existing foundation, starter project, copied/adapted external source files, or externally contributed project code or assets. The Git history begins with the product implementation commit on October 11, 2026, within the stated build window. Runtime and development packages and protocol interfaces are listed above; their use is not a claim of external code contribution.

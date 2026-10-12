@@ -17,3 +17,9 @@ The verified path covers:
 Order Steward is non-custodial: the connected wallet signs every transaction. Tracked order intent is stored in the browser and reconciled against Kuru contract state.
 
 The project videos and submission copy describe these completed flows as verified. See [the technical demo](../evidence/videos/OrderSteward_Technical_Demo.mp4) and [evidence index](../evidence/README.md).
+
+## Transaction visible in the submitted demo
+
+The explorer view in the submitted technical demo shows successful transaction `0x19b474abc0c3404e4805fc74996ef796c472d33b1a4343230ded399d98ba35eb` in block `112462158`, at 2026-10-11 11:55:52 UTC. The explorer labels the action “MetaMask: Gas Station Call Redeem Delegations.” This is recorded as visible demo evidence; this record does not claim that this hash is the separate Kuru order-placement or cancellation transaction. Obtain and list those hashes from the wallet/explorer if the submission form requests them.
+
+The demo displays Kuru market `0xcb4659fbe7f7718d4e2ce9b91bbf0f04de19249d`. The Kuru router address documented in the integration audit is `0xd651346d7c789536ebf06dc72ae3c8502cd695cc`; the margin account is resolved from the router getter at runtime.

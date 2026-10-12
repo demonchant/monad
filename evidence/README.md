@@ -16,4 +16,4 @@ The pitch and technical demo use the supplied `1.mp4` screen recording with revi
 
 Narration sources: [pitch](../docs/pitch-video-narration.txt), [technical demo](../docs/technical-demo-narration.txt), and [promo](../docs/promo-video-narration.txt). Rendering scripts and assets are in `evidence/videos/`.
 
-Upload the MP4s to a public video host to get links for the hackathon submission. The repository contains the files; no YouTube upload is made from this workspace.
+The README links directly to the MP4s in this public repository. Use those links in the submission if accepted. If the official submission form requires a public video-host URL, upload the same final MP4 there and use that URL. The submitted technical demo is preserved as provided; it is about 80 seconds and shows the wallet-connected flow.

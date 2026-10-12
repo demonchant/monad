@@ -55,6 +55,7 @@ OpenAI Codex was the only AI tool used. It assisted with product implementation 
 
 ## Proof and limitations
 
+- **Transaction shown in the submitted demo:** `0x19b474abc0c3404e4805fc74996ef796c472d33b1a4343230ded399d98ba35eb` (block `112462158`). The explorer labels this action “Gas Station Call Redeem Delegations”; this is the hash visible in the video and is not identified here as the separate order-placement or cancellation transaction.
 - [Integration and dependency audit](docs/dependency-audit.md)
 - [Demo and recovery guide](docs/demo-and-pitch.md)
 - [Evidence provenance](evidence/README.md)
